@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
+import { processJsonFile} from './processArtifacts';
 import { updateYamlDiagnostics, subscribeToDocumentChanges } from './validation';
 
 export function activate(context: vscode.ExtensionContext) {
@@ -17,13 +19,42 @@ export function activate(context: vscode.ExtensionContext) {
             if (editor) {
                 updateYamlDiagnostics(editor.document, yamlDiagnostics);
             }
+               //execute commands in sequence
         }));
+      let disposable=  vscode.commands.registerCommand('mobr-pipelines.selectServiceRootFolder', ()=>{
+            selectServiceRootFolder();
+    });
+    context.subscriptions.push(disposable);
   
 
     console.log('Congratulations, your extension "mobr-pipelines" is now active!');
 
 }
+async function selectServiceRootFolder() {
+    
+    const options: vscode.OpenDialogOptions = {
+        canSelectMany: false,
+        openLabel: 'Select Folder',
+        canSelectFolders: true,
+        canSelectFiles: false};
 
+        const folderUri= await vscode.window.showOpenDialog(options);
+        if(folderUri&&folderUri[0]){
+            const folderPath=folderUri[0].fsPath;
+            const files=fs.readdirSync(folderPath);
+           let subscriptionId: string | undefined;
+           for (const file of files){
+            const filePath =path.join(folderPath, file);
+            if(path.extname(filePath)==='.json'){
+                subscriptionId=processJsonFile(filePath);
+                if(subscriptionId){
+                    
+                }
+            }
+           }
+        }
+
+}
 async function updateWorkspaceSettings() {
     const config = vscode.workspace.getConfiguration("yaml");
     let settings = config.get<Record<string, any>>("schemas") || {};

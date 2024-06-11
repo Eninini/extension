@@ -29,8 +29,10 @@ export function updateYamlDiagnostics(document: vscode.TextDocument, collection:
             const stages = yamlContent.extends.parameters.stages;
             for (const stage of stages) {
                 if (stage.stage && stage.stage.toLowerCase().startsWith('test')) {
+                    let id: string;
                     if(stage.variables.azure_subscription_id){
-                        let id=stage.variables.azure_subscription_id;
+                        id=stage.variables.azure_subscription_id;
+                        console.log(id);
                     }
                     const jobs = stage.jobs || [];
                     for (const job of jobs) {
@@ -73,6 +75,15 @@ export function updateYamlDiagnostics(document: vscode.TextDocument, collection:
                                 const range = new vscode.Range(new vscode.Position(problemLine, 0), new vscode.Position(problemLine, yamlLines[problemLine].length ));
                                 diagnostics.push(new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error));
                             }
+                            steps.forEach((step: any) => {
+                                if('inputs' in step) {
+                                    const inputValues=step.inputs;
+                                    if(inputValues&&inputValues.RolloutSpecPath){
+                                        console.log(inputValues['RolloutSpecPath']);
+                                    }
+                                }
+                            });
+
                         }
                     }
                 }

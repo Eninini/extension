@@ -29,6 +29,12 @@
         "key": "ctrl+alt+v",
         "mac":"cmd+alt+v",
         "when": "editorTextFocus"
+      },
+      {
+        "command": "mobr-pipelines.selectServiceRootFolder",
+        "key": "ctrl+alt+v",
+        "mac":"cmd+alt+v",
+        "when": "editorTextFocus"
       }
     ]
   },
