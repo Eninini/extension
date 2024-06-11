@@ -1,14 +1,27 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { updateYamlDiagnostics, subscribeToDocumentChanges } from './validation';
 
 export function activate(context: vscode.ExtensionContext) {
-    console.log('Congratulations, your extension "mobr-pipelines" is now active!');
+    //console.log('Congratulations, your extension "mobr-pipelines" is now active!');
+    const yamlDiagnostics = vscode.languages.createDiagnosticCollection('yaml');
+    subscribeToDocumentChanges(context, yamlDiagnostics);
 
     let updateSettings = vscode.commands.registerCommand("mobr-pipelines.updateWorkspaceSettings", () => {
         updateWorkspaceSettings();
     });
-
     context.subscriptions.push(updateSettings);
+   context.subscriptions.push(
+        vscode.commands.registerCommand('mobr-pipelines.validateYaml', () => {
+            const editor = vscode.window.activeTextEditor;
+            if (editor) {
+                updateYamlDiagnostics(editor.document, yamlDiagnostics);
+            }
+        }));
+  
+
+    console.log('Congratulations, your extension "mobr-pipelines" is now active!');
+
 }
 
 async function updateWorkspaceSettings() {
@@ -50,18 +63,7 @@ async function updateWorkspaceSettings() {
         vscode.window.showErrorMessage(`Failed to update YAML schema settings: ${error}`);
         console.log('Failed to update YAML schema settings:', error);
     }
-    // const azureConfig = vscode.workspace.getConfiguration();
-    // const azureSchemaPath = schemaFileUri; // Path to your schema file
-
-    // console.log('Updating Azure Pipelines custom schema settings...');
-    // try {
-    //     await azureConfig.update("azure-pipelines.customSchemaFile", azureSchemaPath, vscode.ConfigurationTarget.Workspace);
-    //     vscode.window.showInformationMessage(`Updated Azure Pipelines custom schema settings to ${azureSchemaPath}`);
-    //     console.log('Updated Azure Pipelines custom schema settings:', azureSchemaPath);
-    // } catch (error) {
-    //     vscode.window.showErrorMessage(`Failed to update Azure Pipelines custom schema settings: ${error}`);
-    //     console.log('Failed to update Azure Pipelines custom schema settings:', error);
-    // }
+    
 }
 
 export function deactivate() {
