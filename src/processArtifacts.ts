@@ -5,12 +5,14 @@ export function extractAzureSubscriptionId(jsonData:any): string | undefined{
     if(typeof jsonData==='object'){
         for (const key in jsonData){
             if(jsonData.hasOwnProperty(key)){
-                if(key==='azure_subscription_id'){
+                if(key==='azureSubscriptionId'){
+                    console.log(jsonData[key]);
                     return jsonData[key];
                 }
                 else{
                     const value =extractAzureSubscriptionId(jsonData[key]);
                     if(value){
+                        console.log(value);
                         return value;
                     }
                 }
