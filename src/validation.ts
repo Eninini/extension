@@ -9,8 +9,11 @@ export function updateYamlDiagnostics(document: vscode.TextDocument, collection:
         const text = document.getText();
 
         let yamlContent: any;
+        let yamlLines: any;
         try {
             yamlContent = yaml.load(text);
+            yamlLines = text.split('\n');
+
         } catch (error: any) {
             collection.set(document.uri, [{
                 code: '',
@@ -22,6 +25,14 @@ export function updateYamlDiagnostics(document: vscode.TextDocument, collection:
             }]);
             return;
         }
+        let stageIndices = [];
+        for (let i = 0; i < yamlLines.length; i++) {
+            if (yamlLines[i].includes('stage:')) {
+                stageIndices.push(i);
+                console.log(`position of stage: ${i}`);
+            }
+        }
+        stageIndices.push(yamlLines.length);
 
         //   Initialize an array to hold the diagnostics
         const diagnostics: vscode.Diagnostic[] = [];
@@ -29,109 +40,133 @@ export function updateYamlDiagnostics(document: vscode.TextDocument, collection:
         // Check for the specific condition in the YAML content
         if (yamlContent.extends && yamlContent.extends.parameters && yamlContent.extends.parameters.stages) {
             const stages = yamlContent.extends.parameters.stages;
+            let j = 0;
             for (const stage of stages) {
-                if (stage.stage && stage.stage.toLowerCase().startsWith('test')) {
+                console.log(stage.stage);
+                if(stage.stage){
                     let azureSubId: string;
                     if (stage.variables.azure_subscription_id) {
                         azureSubId = stage.variables.azure_subscription_id;
                         console.log(azureSubId);
                     }
-                    const jobs = stage.jobs || [];
-                    for (const job of jobs) {
-                        if (job.job) {
-                            const steps = job.steps || [];
-                            if (!steps.some((step: any) => step.download)) {
-                                const message = 'Steps must have atleast one download property';
-                                const yamlLines = text.split('\n');
+                    if(stage.jobs){
+                        const jobs=stage.jobs;
+                        for(const job of jobs){
+                            console.log(job.job);
+                            if(job.steps){
+                                const steps=job.steps;
+                                steps.forEach((step: any) => {
+                                    if ('inputs' in step) {
+                                        const inputValues = step.inputs;
+                                        if (inputValues && inputValues.RolloutSpecPath) {
+                                            const filePath = inputValues['RolloutSpecPath'];
+                                            const lastSlashIndex = filePath.lastIndexOf('/');
 
-                                //let problemColumn = 0;
-                                for (let i = problemLine; i < yamlLines.length; i++) {
-                                    if (yamlLines[i].includes('steps')) {
-                                        problemLine = i;
-                                        //  problemColumn = yamlLines[i].indexOf(stage.jobs.steps);
-                                        break;
-                                    }
-                                }
+                                            // Find the index of '.RolloutSpec.Test.json'
+                                            const suffixIndex = filePath.lastIndexOf('.rolloutspec.json');
+                                            let file: string = "";
+                                            if (lastSlashIndex !== -1 && suffixIndex !== -1 && suffixIndex > lastSlashIndex && folderPath) {
+                                                const prefix = filePath.substring(lastSlashIndex + 1, suffixIndex);
+                                                file = path.join(folderPath, prefix, '.servicemodel.json');
+                                                console.log(prefix); // Output: ConfiguratorServiceCICD
+                                            } else {
+                                                const prefix = "";
+                                                if (folderPath) {
+                                                    file = path.join(folderPath, 'servicemodel.json');
+                                                } console.log('Prefix not found');
 
-                                const range = new vscode.Range(new vscode.Position(problemLine, 0), new vscode.Position(problemLine, yamlLines[problemLine].length));
-                                console.log(range);
-                                diagnostics.push(new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error));
-
-                            }
-                            const taskNames = steps.map((step: any) => step.task);
-                            if (taskNames.includes('ExpressV2Internal@1') && !taskNames.includes('prepare-deployment@1')) {
-                                const message = 'Error: Stages with environment `Test` requires a Prepare Deployment task just before an Ev2 task.';
-
-                                // Find the line and column number where the issue is located
-                                const yamlLines = text.split('\n');
-                                let problemLine = 0;
-                                // let problemColumn = 0;
-                                for (let i = problemLine; i < yamlLines.length; i++) {
-                                    if (yamlLines[i].includes('steps')) {
-                                        problemLine = i;
-                                        // problemColumn = yamlLines[i].indexOf(stage.jobs.steps);
-                                        break;
-                                    }
-                                }
-
-                                const range = new vscode.Range(new vscode.Position(problemLine, 0), new vscode.Position(problemLine, yamlLines[problemLine].length));
-                                diagnostics.push(new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error));
-                            }
-                            steps.forEach((step: any) => {
-                                if ('inputs' in step) {
-                                    const inputValues = step.inputs;
-                                    if (inputValues && inputValues.RolloutSpecPath) {
-                                        const filePath = inputValues['RolloutSpecPath'];
-                                        const lastSlashIndex = filePath.lastIndexOf('/');
-
-                                        // Find the index of '.RolloutSpec.Test.json'
-                                        const suffixIndex = filePath.lastIndexOf('.rolloutspec.json');
-                                        let file: string = "";
-                                        if (lastSlashIndex !== -1 && suffixIndex !== -1 && suffixIndex > lastSlashIndex && folderPath) {
-                                            const prefix = filePath.substring(lastSlashIndex + 1, suffixIndex);
-                                            file = path.join(folderPath, prefix, '.servicemodel.json');
-                                            console.log(prefix); // Output: ConfiguratorServiceCICD
-                                        } else {
-                                            const prefix = "";
-                                            if (folderPath) {
-                                                file = path.join(folderPath, 'servicemodel.json');
-                                            } console.log('Prefix not found');
-
-                                        }
-                                        let subscriptionId: string | undefined;
-
-
-
-                                        subscriptionId = processJsonFile(file);
-                                        if (subscriptionId) {
-                                            if (subscriptionId !== azureSubId) {
-                                                const message = 'Error: Incorrect Azure subscription id.';
-
-                                                const yamlLines = text.split('\n');
-                                                //let problemLine = 0;
-                                                for (let i = problemLine; i < yamlLines.length; i++) {
-                                                    if (yamlLines[i].includes('azure_subscription_id' || 'azure_subscription_ids')) {
-                                                        problemLine = i;
-                                                        break;
-                                                    }
-                                                }
-
-                                                const range = new vscode.Range(new vscode.Position(problemLine, 0), new vscode.Position(problemLine, yamlLines[problemLine].length));
-                                                diagnostics.push(new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error));
                                             }
+                                            let subscriptionId: string | undefined;
+
+
+
+                                            subscriptionId = processJsonFile(file);
+                                            if (subscriptionId) {
+                                                if (subscriptionId !== azureSubId) {
+                                                    const message = 'Error: Incorrect Azure subscription id.';
+
+                                                    const yamlLines = text.split('\n');
+                                                    //let problemLine = 0;
+                                                    for (let k = stageIndices[j]; k < stageIndices[j + 1]; k++) {
+                                                        if (yamlLines[k].includes(azureSubId)) {
+                                                            problemLine = k;
+                                                            console.log(problemLine);
+
+                                                            break;
+                                                        }
+                                                    }
+
+                                                    const range = new vscode.Range(new vscode.Position(problemLine, 0), new vscode.Position(problemLine, yamlLines[problemLine].length));
+                                                    diagnostics.push(new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Warning));
+                                                }
+                                            }
+
+
+
+                                            console.log(inputValues['RolloutSpecPath']);
+                                            console.log(file);
                                         }
-
-
-
-                                        console.log(inputValues['RolloutSpecPath']);
-                                        console.log(file);
                                     }
-                                }
-                            });
-
+                                });
+                            }
+                            
                         }
                     }
                 }
+                if (stage.stage && stage.stage.toLowerCase().startsWith('test')) {
+
+                  
+                    //const jobs = stage.jobs || [];
+                    if (stage.jobs) {
+                        const jobs = stage.jobs;
+                        for (const job of jobs) {
+                            console.log(job.job);
+                            if (job.steps) {
+                                const steps = job.steps;
+                                if (!steps.some((step: any) => step.download)) {
+                                    const message = 'Steps must have atleast one download property';
+                                    const yamlLines = text.split('\n');
+
+                                    let problemColumn = 0;
+                                    for (let k = stageIndices[j]; k < stageIndices[j + 1]; k++) {
+                                        if (yamlLines[k].includes('steps')) {
+                                            problemLine = k;
+                                            console.log(k);
+                                            //  problemColumn = yamlLines[i].indexOf(stage.jobs.steps);
+                                            break;
+                                        }
+                                    }
+
+                                    const range = new vscode.Range(new vscode.Position(problemLine, 0), new vscode.Position(problemLine, yamlLines[problemLine].length));
+                                    console.log(range);
+                                    diagnostics.push(new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error));
+
+                                }
+                                const taskNames = steps.map((step: any) => step.task);
+                                if (taskNames.includes('ExpressV2Internal@1') && !taskNames.includes('prepare-deployment@1')) {
+                                    const message = 'Error: Stages with environment `Test` requires a Prepare Deployment task before an Ev2 task.';
+
+                                    // Find the line and column number where the issue is located
+                                    const yamlLines = text.split('\n');
+                                    let problemLine = 0;
+                                    // let problemColumn = 0;
+                                    for (let k = stageIndices[j]; k < stageIndices[j + 1]; k++) {
+                                        if (yamlLines[k].includes('steps')) {
+                                            problemLine = k;
+                                            break;
+                                        }
+                                    }
+
+                                    const range = new vscode.Range(new vscode.Position(problemLine, 0), new vscode.Position(problemLine, yamlLines[problemLine].length));
+                                    diagnostics.push(new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error));
+                                }
+                              
+
+                            }
+                        }
+                    }
+                }
+                j++;
             }
         }
 
