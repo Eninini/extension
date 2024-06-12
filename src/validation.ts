@@ -18,7 +18,8 @@ export function updateYamlDiagnostics(document: vscode.TextDocument, collection:
             collection.set(document.uri, [{
                 code: '',
                 message: `YAML syntax error: ${error.message}`,
-                range: new vscode.Range(new vscode.Position(0, 0), new vscode.Position(0, 1)),
+                range: error.range,
+                //new vscode.Range(new vscode.Position(0, 0), new vscode.Position(0, 1)),
                 severity: vscode.DiagnosticSeverity.Error,
                 source: 'yaml',
                 relatedInformation: []
@@ -68,7 +69,7 @@ export function updateYamlDiagnostics(document: vscode.TextDocument, collection:
                                             if (lastSlashIndex !== -1 && suffixIndex !== -1 && suffixIndex > lastSlashIndex && folderPath) {
                                                 const prefix = filePath.substring(lastSlashIndex + 1, suffixIndex);
                                                 file = path.join(folderPath, prefix, '.servicemodel.json');
-                                                console.log(prefix); // Output: ConfiguratorServiceCICD
+                                                console.log(prefix); 
                                             } else {
                                                 const prefix = "";
                                                 if (folderPath) {
@@ -87,17 +88,21 @@ export function updateYamlDiagnostics(document: vscode.TextDocument, collection:
 
                                                     const yamlLines = text.split('\n');
                                                     //let problemLine = 0;
+                                                    let problemColumn=0;
                                                     for (let k = stageIndices[j]; k < stageIndices[j + 1]; k++) {
                                                         if (yamlLines[k].includes(azureSubId)) {
+                                                            problemColumn=yamlLines[k].indexOf(azureSubId);
                                                             problemLine = k;
                                                             console.log(problemLine);
 
                                                             break;
                                                         }
                                                     }
-
-                                                    const range = new vscode.Range(new vscode.Position(problemLine, 0), new vscode.Position(problemLine, yamlLines[problemLine].length));
-                                                    diagnostics.push(new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Warning));
+                                                    const code='incorrectSubscriptionId';
+                                                    const range = new vscode.Range(new vscode.Position(problemLine, problemColumn), new vscode.Position(problemLine, yamlLines[problemLine].length));
+                                                   const diagnostic=new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error);
+                                                   diagnostic.code=code;
+                                                   diagnostics.push(diagnostic);
                                                 }
                                             }
 
@@ -132,15 +137,16 @@ export function updateYamlDiagnostics(document: vscode.TextDocument, collection:
                                         if (yamlLines[k].includes('steps')) {
                                             problemLine = k;
                                             console.log(k);
-                                            //  problemColumn = yamlLines[i].indexOf(stage.jobs.steps);
+                                             problemColumn = yamlLines[k].indexOf('steps');
                                             break;
                                         }
                                     }
 
-                                    const range = new vscode.Range(new vscode.Position(problemLine, 0), new vscode.Position(problemLine, yamlLines[problemLine].length));
+                                    const range = new vscode.Range(new vscode.Position(problemLine, problemColumn), new vscode.Position(problemLine, yamlLines[problemLine].length));
                                     console.log(range);
-                                    diagnostics.push(new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error));
-
+                                    const diagnostic=new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error);
+                                    diagnostic.code='missingDownload';
+                                    diagnostics.push(diagnostic);
                                 }
                                 const taskNames = steps.map((step: any) => step.task);
                                 if (taskNames.includes('ExpressV2Internal@1') && !taskNames.includes('prepare-deployment@1')) {
@@ -149,16 +155,19 @@ export function updateYamlDiagnostics(document: vscode.TextDocument, collection:
                                     // Find the line and column number where the issue is located
                                     const yamlLines = text.split('\n');
                                     let problemLine = 0;
-                                    // let problemColumn = 0;
+                                     let problemColumn = 0;
                                     for (let k = stageIndices[j]; k < stageIndices[j + 1]; k++) {
-                                        if (yamlLines[k].includes('steps')) {
+                                        if (yamlLines[k].includes('ExpressV2Internal@1')) {
+                                            problemColumn=yamlLines[k].indexOf('ExpressV2Internal@1');
                                             problemLine = k;
                                             break;
                                         }
                                     }
 
-                                    const range = new vscode.Range(new vscode.Position(problemLine, 0), new vscode.Position(problemLine, yamlLines[problemLine].length));
-                                    diagnostics.push(new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error));
+                                    const range = new vscode.Range(new vscode.Position(problemLine, problemColumn), new vscode.Position(problemLine, yamlLines[problemLine].length));
+                                    const diagnostic=new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error);
+                                    diagnostic.code='missingPrepareDeploymentTask';
+                                    diagnostics.push(diagnostic);
                                 }
                               
 

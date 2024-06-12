@@ -5,18 +5,18 @@ import { processJsonFile } from './processArtifacts';
 import { updateYamlDiagnostics, subscribeToDocumentChanges } from './validation';
 
 
-export var folderPath: string|undefined;
+export var folderPath: string | undefined;
 export function activate(context: vscode.ExtensionContext) {
     //console.log('Congratulations, your extension "mobr-pipelines" is now active!');
     const yamlDiagnostics = vscode.languages.createDiagnosticCollection('yaml');
     subscribeToDocumentChanges(context, yamlDiagnostics);
 
-    let updateSettings =  vscode.commands.registerCommand("mobr-pipelines.updateWorkspaceSettings", () => {
+    let updateSettings = vscode.commands.registerCommand("mobr-pipelines.updateWorkspaceSettings", () => {
         updateWorkspaceSettings();
     });
     context.subscriptions.push(updateSettings);
-    let disposable =  vscode.commands.registerCommand('mobr-pipelines.selectServiceRootFolder', async () => {
-       await selectServiceRootFolder();
+    let disposable = vscode.commands.registerCommand('mobr-pipelines.selectServiceRootFolder', async () => {
+        await selectServiceRootFolder();
     });
     context.subscriptions.push(disposable);
     context.subscriptions.push(
@@ -24,43 +24,49 @@ export function activate(context: vscode.ExtensionContext) {
             const editor = vscode.window.activeTextEditor;
 
             if (editor) {
-              await updateYamlDiagnostics(editor.document, yamlDiagnostics);
+                await updateYamlDiagnostics(editor.document, yamlDiagnostics);
             }
             //execute commands in sequence
         }));
 
-
+    context.subscriptions.push(
+        vscode.languages.registerCodeActionsProvider('yaml', new YamlCodeActionProvider(), {
+            providedCodeActionKinds: YamlCodeActionProvider.providedCodeActionKinds
+        })
+    );
 
     console.log('Congratulations, your extension "mobr-pipelines" is now active!');
 
 }
 async function selectServiceRootFolder() {
 
-   try { const options: vscode.OpenDialogOptions = {
-        canSelectMany: false,
-        openLabel: 'Select Artifacts Folder',
-        canSelectFolders: true,
-        canSelectFiles: false
-    };
+    try {
+        const options: vscode.OpenDialogOptions = {
+            canSelectMany: false,
+            openLabel: 'Select Artifacts Folder',
+            canSelectFolders: true,
+            canSelectFiles: false
+        };
 
-    const folderUri = await vscode.window.showOpenDialog(options);
-    if (folderUri && folderUri[0]) {
-        folderPath = folderUri[0].fsPath;       //checking folder has some content
+        const folderUri = await vscode.window.showOpenDialog(options);
+        if (folderUri && folderUri[0]) {
+            folderPath = folderUri[0].fsPath;       //checking folder has some content
 
 
-        // const files = fs.readdirSync(folderPath);     //before accessing files
-        //    let subscriptionId: string | undefined;
-        //    for (const file of files){
-        //     const filePath =path.join(folderPath, file);
-        //     if(path.extname(filePath)==='.json'){
-        //         subscriptionId=processJsonFile(filePath);
-        //         if(subscriptionId){
+            // const files = fs.readdirSync(folderPath);     //before accessing files
+            //    let subscriptionId: string | undefined;
+            //    for (const file of files){
+            //     const filePath =path.join(folderPath, file);
+            //     if(path.extname(filePath)==='.json'){
+            //         subscriptionId=processJsonFile(filePath);
+            //         if(subscriptionId){
 
-        //         }
-        //     }
-        //    }
-    }}
-    catch(error){
+            //         }
+            //     }
+            //    }
+        }
+    }
+    catch (error) {
         vscode.window.showErrorMessage(`failed to select service root folder: ${error}`);
         console.log(error);
     }
@@ -69,7 +75,7 @@ async function selectServiceRootFolder() {
 async function updateWorkspaceSettings() {
     const config = vscode.workspace.getConfiguration("yaml");
     let settings = config.get<Record<string, any>>("schemas") || {};
-console.log(settings);
+    console.log(settings);
     // Define the path to your JSON schema file
     const schemaFileName = "mobrSchema.json";
     console.log(__dirname);
@@ -108,7 +114,47 @@ console.log(settings);
     }
 
 }
+class YamlCodeActionProvider implements vscode.CodeActionProvider {
 
+    public static readonly providedCodeActionKinds = [
+        vscode.CodeActionKind.QuickFix
+    ];
+
+    provideCodeActions(document: vscode.TextDocument, range: vscode.Range): vscode.CodeAction[] {
+        const diagnostics = vscode.languages.getDiagnostics(document.uri);
+        const codeActions: vscode.CodeAction[] = [];
+
+        diagnostics.forEach(diagnostic => {
+            if (diagnostic.code === 'incorrectSubscriptionId') {
+                const fix = new vscode.CodeAction('Fix incorrect subscription ID', vscode.CodeActionKind.QuickFix);
+                fix.edit = new vscode.WorkspaceEdit();
+                fix.edit.replace(document.uri, diagnostic.range, 'how do i bring the id here?');
+                fix.diagnostics = [diagnostic];
+                codeActions.push(fix);
+            }
+
+            if (diagnostic.code === 'missingDownload') {
+                const fix = new vscode.CodeAction('Add download step', vscode.CodeActionKind.QuickFix);
+                fix.edit = new vscode.WorkspaceEdit();
+                const insertPosition = new vscode.Position(diagnostic.range.start.line + 1, 0);
+                fix.edit.insert(document.uri, insertPosition, '  - download:\n');
+                fix.diagnostics = [diagnostic];
+                codeActions.push(fix);
+            }
+
+            if (diagnostic.code === 'missingPrepareDeploymentTask') {
+                const fix = new vscode.CodeAction('Add prepare-deployment task', vscode.CodeActionKind.QuickFix);
+                fix.edit = new vscode.WorkspaceEdit();
+                const insertPosition = new vscode.Position(diagnostic.range.start.line, 0);
+                fix.edit.insert(document.uri, insertPosition, '  - task: prepare-deployment@1\n');
+                fix.diagnostics = [diagnostic];
+                codeActions.push(fix);
+            }
+        });
+
+        return codeActions;
+    }
+}
 export function deactivate() {
     console.log('Deactivating extension...');
 }
