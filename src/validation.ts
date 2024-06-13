@@ -84,7 +84,7 @@ export function updateYamlDiagnostics(document: vscode.TextDocument, collection:
                                             subscriptionId = processJsonFile(file);
                                             if (subscriptionId) {
                                                 if (subscriptionId !== azureSubId) {
-                                                    const message = 'Error: Incorrect Azure subscription id.';
+                                                    const message = `Error: Incorrect Azure subscription id. Do you mean \"${subscriptionId}\" ?`;
 
                                                     const yamlLines = text.split('\n');
                                                     //let problemLine = 0;
@@ -158,7 +158,7 @@ export function updateYamlDiagnostics(document: vscode.TextDocument, collection:
                                      let problemColumn = 0;
                                     for (let k = stageIndices[j]; k < stageIndices[j + 1]; k++) {
                                         if (yamlLines[k].includes('ExpressV2Internal@1')) {
-                                            problemColumn=yamlLines[k].indexOf('ExpressV2Internal@1');
+                                            problemColumn=yamlLines[k].indexOf('task:');
                                             problemLine = k;
                                             break;
                                         }

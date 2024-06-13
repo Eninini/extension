@@ -128,7 +128,7 @@ class YamlCodeActionProvider implements vscode.CodeActionProvider {
             if (diagnostic.code === 'incorrectSubscriptionId') {
                 const fix = new vscode.CodeAction('Fix incorrect subscription ID', vscode.CodeActionKind.QuickFix);
                 fix.edit = new vscode.WorkspaceEdit();
-                fix.edit.replace(document.uri, diagnostic.range, 'how do i bring the id here?');
+                fix.edit.replace(document.uri, diagnostic.range, diagnostic.message.substring(53,90));
                 fix.diagnostics = [diagnostic];
                 codeActions.push(fix);
             }
@@ -136,19 +136,35 @@ class YamlCodeActionProvider implements vscode.CodeActionProvider {
             if (diagnostic.code === 'missingDownload') {
                 const fix = new vscode.CodeAction('Add download step', vscode.CodeActionKind.QuickFix);
                 fix.edit = new vscode.WorkspaceEdit();
-                const insertPosition = new vscode.Position(diagnostic.range.start.line + 1, 0);
+                const insertPosition = new vscode.Position(diagnostic.range.start.line + 1, diagnostic.range.start.character + 1);
                 fix.edit.insert(document.uri, insertPosition, '  - download:\n');
                 fix.diagnostics = [diagnostic];
                 codeActions.push(fix);
             }
 
             if (diagnostic.code === 'missingPrepareDeploymentTask') {
+                
                 const fix = new vscode.CodeAction('Add prepare-deployment task', vscode.CodeActionKind.QuickFix);
                 fix.edit = new vscode.WorkspaceEdit();
-                const insertPosition = new vscode.Position(diagnostic.range.start.line, 0);
-                fix.edit.insert(document.uri, insertPosition, '  - task: prepare-deployment@1\n');
+
+                // Ensure the insert position is valid and within the document boundaries
+                const insertLine = Math.max(0, diagnostic.range.start.line-1); // Ensure non-negative line number
+
+                // Get the text at the insert position line to determine the current indentation
+                const lineText = document.lineAt(insertLine).text;
+                const match = lineText.match(/^\s*/); // Get leading whitespace from the line
+                const leadingWhitespace=match?match[0]:'';
+                // Prepare the text to insert with correct indentation
+                const insertText = `${leadingWhitespace}- task: prepare-deployment@1\n`;
+
+                fix.edit.insert(document.uri, new vscode.Position(insertLine, 0), insertText);
+
+                // Associate the diagnostic with the fix
                 fix.diagnostics = [diagnostic];
+
+                // Add the fix to the code actions array
                 codeActions.push(fix);
+
             }
         });
 
