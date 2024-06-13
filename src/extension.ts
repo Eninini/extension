@@ -136,8 +136,8 @@ class YamlCodeActionProvider implements vscode.CodeActionProvider {
             if (diagnostic.code === 'missingDownload') {
                 const fix = new vscode.CodeAction('Add download step', vscode.CodeActionKind.QuickFix);
                 fix.edit = new vscode.WorkspaceEdit();
-                const insertPosition = new vscode.Position(diagnostic.range.start.line + 1, diagnostic.range.start.character + 1);
-                fix.edit.insert(document.uri, insertPosition, '  - download:\n');
+                const insertPosition = new vscode.Position(diagnostic.range.start.line + 1, diagnostic.range.start.character + 2);
+                fix.edit.insert(document.uri, insertPosition, '- download:\n');
                 fix.diagnostics = [diagnostic];
                 codeActions.push(fix);
             }

@@ -68,7 +68,7 @@ export function updateYamlDiagnostics(document: vscode.TextDocument, collection:
                                             let file: string = "";
                                             if (lastSlashIndex !== -1 && suffixIndex !== -1 && suffixIndex > lastSlashIndex && folderPath) {
                                                 const prefix = filePath.substring(lastSlashIndex + 1, suffixIndex);
-                                                file = path.join(folderPath, prefix, '.servicemodel.json');
+                                                file = path.join(folderPath, `${prefix}.servicemodel.json`);
                                                 console.log(prefix); 
                                             } else {
                                                 const prefix = "";
