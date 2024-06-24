@@ -42,13 +42,14 @@ export function updateYamlDiagnostics(document: vscode.TextDocument, collection:
         if (yamlContent.extends && yamlContent.extends.parameters && yamlContent.extends.parameters.stages) {
             const stages = yamlContent.extends.parameters.stages;
             let j = 0;
+            let cnt=0;
             for (const stage of stages) {
-                console.log(stage.stage);
+                //console.log(stage.stage); 
                 if(stage.stage){
-                    let azureSubId: string;
+                    let azureSubId: string="";
                     if (stage.variables.azure_subscription_id) {
                         azureSubId = stage.variables.azure_subscription_id;
-                        console.log(azureSubId);
+                        //console.log(azureSubId);
                     }
                     if(stage.jobs){
                         const jobs=stage.jobs;
@@ -57,6 +58,8 @@ export function updateYamlDiagnostics(document: vscode.TextDocument, collection:
                             if(job.steps){
                                 const steps=job.steps;
                                 steps.forEach((step: any) => {
+                                    //console.log(`step ${cnt=cnt+1}`);
+
                                     if ('inputs' in step) {
                                         const inputValues = step.inputs;
                                         if (inputValues && inputValues.RolloutSpecPath) {
@@ -64,7 +67,7 @@ export function updateYamlDiagnostics(document: vscode.TextDocument, collection:
                                             const lastSlashIndex = filePath.lastIndexOf('/');
 
                                             // Find the index of '.RolloutSpec.Test.json'
-                                            const suffixIndex = filePath.lastIndexOf('.rolloutspec.json');
+                                            const suffixIndex = filePath.toLowerCase().lastIndexOf('.rolloutspec.json');
                                             let file: string = "";
                                             if (lastSlashIndex !== -1 && suffixIndex !== -1 && suffixIndex > lastSlashIndex && folderPath) {
                                                 const prefix = filePath.substring(lastSlashIndex + 1, suffixIndex);
@@ -77,34 +80,70 @@ export function updateYamlDiagnostics(document: vscode.TextDocument, collection:
                                                 } console.log('Prefix not found');
 
                                             }
-                                            let subscriptionId: string | undefined;
+                                            let subscriptionId: string []=[];
 
 
-
+                                            
                                             subscriptionId = processJsonFile(file);
-                                            if (subscriptionId) {
-                                                if (subscriptionId !== azureSubId) {
-                                                    const message = `Error: Incorrect Azure subscription id. Do you mean \"${subscriptionId}\" ?`;
-
-                                                    const yamlLines = text.split('\n');
-                                                    //let problemLine = 0;
-                                                    let problemColumn=0;
-                                                    for (let k = stageIndices[j]; k < stageIndices[j + 1]; k++) {
-                                                        if (yamlLines[k].includes(azureSubId)) {
-                                                            problemColumn=yamlLines[k].indexOf(azureSubId);
-                                                            problemLine = k;
-                                                            console.log(problemLine);
-
-                                                            break;
-                                                        }
+                                            console.log(`length of id arr: ${subscriptionId.length}`);
+                                            if (subscriptionId.length>0) {
+                                                console.log("Azure subscription ids", subscriptionId);
+                                                let isFound=false;
+                                                for( let k=0;k<subscriptionId.length;k++){
+                                                    if(subscriptionId[k]===azureSubId){
+                                                        console.log(`does match? ${subscriptionId[k]} and ${azureSubId}`);
+                                                        isFound=true;
+                                                        break;
                                                     }
-                                                    const code='incorrectSubscriptionId';
-                                                    const range = new vscode.Range(new vscode.Position(problemLine, problemColumn), new vscode.Position(problemLine, yamlLines[problemLine].length));
-                                                   const diagnostic=new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error);
-                                                   diagnostic.code=code;
-                                                   diagnostics.push(diagnostic);
+
                                                 }
-                                            }
+                                                if(!isFound){
+                                                    let message = `Error: Incorrect Azure subscription id`;
+                                                    if(subscriptionId.length===1){
+                                                        message = `Error: Incorrect Azure subscription id. Do you mean \"${subscriptionId[0]}\" ?`;
+                                                    }
+                                                            const yamlLines = text.split('\n');
+                                                            //let problemLine = 0;
+                                                            let problemColumn=0;
+                                                            for (let k = stageIndices[j]; k < stageIndices[j + 1]; k++) {
+                                                                if (yamlLines[k].includes(azureSubId)) {
+                                                                    problemColumn=yamlLines[k].indexOf(azureSubId);
+                                                                    problemLine = k;
+                                                                    console.log(problemLine);
+        
+                                                                    break;
+                                                                }
+                                                            }
+                                                            const code='incorrectSubscriptionId';
+                                                            const range = new vscode.Range(new vscode.Position(problemLine, problemColumn), new vscode.Position(problemLine, yamlLines[problemLine].length));
+                                                           const diagnostic=new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error);
+                                                           diagnostic.code=code;
+                                                           diagnostics.push(diagnostic);
+                                                }
+
+                                            //     if (subscriptionId !== azureSubId) {
+                                            //         const message = `Error: Incorrect Azure subscription id. Do you mean \"${subscriptionId}\" ?`;
+
+                                            //         const yamlLines = text.split('\n');
+                                            //         //let problemLine = 0;
+                                            //         let problemColumn=0;
+                                            //         for (let k = stageIndices[j]; k < stageIndices[j + 1]; k++) {
+                                            //             if (yamlLines[k].includes(azureSubId)) {
+                                            //                 problemColumn=yamlLines[k].indexOf(azureSubId);
+                                            //                 problemLine = k;
+                                            //                 console.log(problemLine);
+
+                                            //                 break;
+                                            //             }
+                                            //         }
+                                            //         const code='incorrectSubscriptionId';
+                                            //         const range = new vscode.Range(new vscode.Position(problemLine, problemColumn), new vscode.Position(problemLine, yamlLines[problemLine].length));
+                                            //        const diagnostic=new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error);
+                                            //        diagnostic.code=code;
+                                            //        diagnostics.push(diagnostic);
+                                            //     }
+
+                                             }
 
 
 

@@ -13,11 +13,26 @@
     "Other"
   ],
   "activationEvents": [
+    "onCommand:mobr.pipelines.startChat",
     "onCommand:mobr-pipelines.updateWorkspaceSettings"
-    
   ],
   "main": "./out/extension.js",
   "contributes": {
+   
+      "commands": [
+      {
+        "command": "mobr-pipelines.startChat",
+        "title": "Start MOBR YAML Chat"
+      }],
+    
+    "chatParticipants": [
+      {
+        "id": "mobr-pipelines.mobr-pipelines",
+        "name": "mobr-pipelines",
+        "fullName": "MOBR YAML Assistant",
+        "isSticky": true
+      }
+    ],
     "keybindings": [
       {
         "command": "mobr-pipelines.updateWorkspaceSettings",
@@ -28,13 +43,13 @@
       {
         "command": "mobr-pipelines.validateYaml",
         "key": "ctrl+alt+v",
-        "mac":"cmd+alt+v",
+        "mac": "cmd+alt+v",
         "when": "editorTextFocus"
       },
       {
         "command": "mobr-pipelines.selectServiceRootFolder",
         "key": "ctrl+alt+v",
-        "mac":"cmd+alt+v",
+        "mac": "cmd+alt+v",
         "when": "editorTextFocus"
       }
     ]
@@ -51,7 +66,7 @@
     "@types/js-yaml": "^4.0.9",
     "@types/mocha": "^10.0.6",
     "@types/node": "18.x",
-    "@types/vscode": "^1.89.0",
+    "@types/vscode": "^1.90.0",
     "@typescript-eslint/eslint-plugin": "^7.11.0",
     "@typescript-eslint/parser": "^7.11.0",
     "@vscode/test-cli": "^0.0.9",
@@ -60,6 +75,7 @@
     "typescript": "^5.4.5"
   },
   "dependencies": {
+    "@vscode/prompt-tsx": "^0.2.3-alpha",
     "js-yaml": "^4.1.0"
   }
 }

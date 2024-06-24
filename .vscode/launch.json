@@ -16,6 +16,15 @@
 				"${workspaceFolder}/out/**/*.js"
 			],
 			"preLaunchTask": "${defaultBuildTask}"
+			//
+		    // "type": "node",
+            // "request": "launch",
+            // "name": "Launch Program",
+            // "skipFiles": [
+            //     "<node_internals>/**"
+            // ],
+            // "program": "${workspaceFolder}/src/validation.ts"
+       
 		}
 	]
 }

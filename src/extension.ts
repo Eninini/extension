@@ -1,7 +1,9 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import { renderPrompt } from '@vscode/prompt-tsx';
 import { processJsonFile } from './processArtifacts';
+import { handleError, startChat } from './chatRequestHandler';
 import { updateYamlDiagnostics, subscribeToDocumentChanges } from './validation';
 
 
@@ -34,6 +36,12 @@ export function activate(context: vscode.ExtensionContext) {
             providedCodeActionKinds: YamlCodeActionProvider.providedCodeActionKinds
         })
     );
+   
+    let startChatCommand = vscode.commands.registerCommand('mobr-pipelines.startChat', async () => {
+        await startChat();
+        console.log('Chat started');
+    });
+    context.subscriptions.push(startChatCommand);
 
     console.log('Congratulations, your extension "mobr-pipelines" is now active!');
 
@@ -53,17 +61,7 @@ async function selectServiceRootFolder() {
             folderPath = folderUri[0].fsPath;       //checking folder has some content
 
 
-            // const files = fs.readdirSync(folderPath);     //before accessing files
-            //    let subscriptionId: string | undefined;
-            //    for (const file of files){
-            //     const filePath =path.join(folderPath, file);
-            //     if(path.extname(filePath)==='.json'){
-            //         subscriptionId=processJsonFile(filePath);
-            //         if(subscriptionId){
-
-            //         }
-            //     }
-            //    }
+       
         }
     }
     catch (error) {
@@ -114,12 +112,22 @@ async function updateWorkspaceSettings() {
     }
 
 }
+function findGuidInMessage(message: string): string | "" {
+    // Regular expression pattern for GUID
+    const guidRegex = /[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}/i;
+
+    // Use RegExp.exec() to find the first match in the message
+    const match = guidRegex.exec(message);
+
+    // Return the matched GUID or empty if not found
+    return match ? match[0] : "";
+}
 class YamlCodeActionProvider implements vscode.CodeActionProvider {
 
     public static readonly providedCodeActionKinds = [
         vscode.CodeActionKind.QuickFix
     ];
-
+    
     provideCodeActions(document: vscode.TextDocument, range: vscode.Range): vscode.CodeAction[] {
         const diagnostics = vscode.languages.getDiagnostics(document.uri);
         const codeActions: vscode.CodeAction[] = [];
@@ -128,7 +136,8 @@ class YamlCodeActionProvider implements vscode.CodeActionProvider {
             if (diagnostic.code === 'incorrectSubscriptionId') {
                 const fix = new vscode.CodeAction('Fix incorrect subscription ID', vscode.CodeActionKind.QuickFix);
                 fix.edit = new vscode.WorkspaceEdit();
-                fix.edit.replace(document.uri, diagnostic.range, diagnostic.message.substring(53,90));
+                const guid=findGuidInMessage(diagnostic.message);
+                fix.edit.replace(document.uri, diagnostic.range, guid); //guid cannot be null
                 fix.diagnostics = [diagnostic];
                 codeActions.push(fix);
             }
@@ -136,8 +145,13 @@ class YamlCodeActionProvider implements vscode.CodeActionProvider {
             if (diagnostic.code === 'missingDownload') {
                 const fix = new vscode.CodeAction('Add download step', vscode.CodeActionKind.QuickFix);
                 fix.edit = new vscode.WorkspaceEdit();
-                const insertPosition = new vscode.Position(diagnostic.range.start.line + 1, diagnostic.range.start.character + 2);
-                fix.edit.insert(document.uri, insertPosition, '- download:\n');
+     
+                const insertLine = Math.max(0, diagnostic.range.start.line+1);
+                const lineText=document.lineAt(range.start).text;
+                const match = lineText.match(/^\s*/); // Get leading whitespace from the line
+                const leadingWhitespace=match?match[0]:'';
+                const insertText = `${leadingWhitespace+"  "}- download:\n`;
+                fix.edit.insert(document.uri, new vscode.Position(insertLine, 0), insertText);
                 fix.diagnostics = [diagnostic];
                 codeActions.push(fix);
             }
@@ -148,15 +162,15 @@ class YamlCodeActionProvider implements vscode.CodeActionProvider {
                 fix.edit = new vscode.WorkspaceEdit();
 
                 // Ensure the insert position is valid and within the document boundaries
-                const insertLine = Math.max(0, diagnostic.range.start.line-1); // Ensure non-negative line number
+                const insertLine = Math.max(0, diagnostic.range.start.line); // Ensure non-negative line number
 
                 // Get the text at the insert position line to determine the current indentation
-                const lineText = document.lineAt(insertLine).text;
+                const lineText = document.lineAt(range.start).text;
                 const match = lineText.match(/^\s*/); // Get leading whitespace from the line
                 const leadingWhitespace=match?match[0]:'';
                 // Prepare the text to insert with correct indentation
                 const insertText = `${leadingWhitespace}- task: prepare-deployment@1\n`;
-
+                fix.edit.insert(document.uri, new vscode.Position(insertLine, 0), "\n");
                 fix.edit.insert(document.uri, new vscode.Position(insertLine, 0), insertText);
 
                 // Associate the diagnostic with the fix
