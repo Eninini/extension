@@ -1,0 +1,53 @@
+#Sample single-stage MOBR definition for a Model D service
+trigger: none
+
+resources:
+  repositories:
+    - repository: GovernedTemplates
+      type: git
+      name: OneBranch.Pipelines/GovernedTemplates
+      ref: refs/heads/main
+   
+
+  pipelines:
+  - pipeline: PrimaryArtifact
+    source: "Nibiru_17.00.8433 Official" #The name of build pipeline producing artifacts
+    branch: master
+
+extends:
+  template: v2/Microsoft.NonOfficial.yml@GovernedTemplates
+  parameters:
+    platform:
+      name: m365
+      serviceTreeId: "e7318a46-6b73-43f6-a577-af7ff79bc936"
+      serviceGroupName: "IngestionPPE"    
+    stages:
+    
+    #***************************************Deployment stage************************************************
+    
+    - stage: 'Test_Release'      
+      displayName: 'Deploy service'
+      variables:
+        stage_type: deployment
+        azure_subscription_ids: "5ca3d366-2fc7-45ac-99a6-59824e304b5d"
+      jobs:
+      - job: ReleaseJob
+        pool:
+          type: release
+        steps:
+          - download: PrimaryArtifact   
+          - task: prepare-deployment@1
+            inputs:
+              dropMetadataContainerName: DropMetaData
+              rootPaths: '/_manifest/;/target/Distrib/GriffinComponents/all/retail/amd64/GriffinAzureEv2/GriffinEv2Sample/'
+              destinationPath: '$(PIPELINE.WORKSPACE)\PrimaryArtifact'
+              usePat: false
+          - task: ExpressV2Internal@1
+            displayName: 'Ev2 Deploy'
+            inputs:
+              EndpointProviderType: 'LockboxService'
+              ServiceRootPath: '$(PIPELINE.WORKSPACE)/PrimaryArtifact/drop/target/Distrib/exchange14/all/retail/amd64/Ingestion'
+              RolloutSpecPath: '$(PIPELINE.WORKSPACE)/PrimaryArtifact/drop/target/Distrib/exchange14/all/retail/amd64/Ingestion/Ingestion_PPE.RolloutSpec.json'
+              InlineDynamicBindingOverrides: '{"scopeBindings":[{"scopeTagName":"GenevaIngestionPPE","bindings":[{"find":"__ENVIRONMENT__","replaceWith":"scucomplianceppe"},{"find":"__HostedServiceName__","replaceWith":"scucomplianceppe"}]}]}'                  
+
+

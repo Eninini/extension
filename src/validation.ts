@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
 import { folderPath } from './extension';
-import { processJsonFile } from './processArtifacts';
+import { processJsonFile, processRolloutspecFile } from './processArtifacts';
 
 export function updateYamlDiagnostics(document: vscode.TextDocument, collection: vscode.DiagnosticCollection): void {
     if (document && (path.extname(document.uri.fsPath) === '.yaml' || path.extname(document.uri.fsPath) === '.yml')) {
@@ -46,11 +46,17 @@ export function updateYamlDiagnostics(document: vscode.TextDocument, collection:
             for (const stage of stages) {
                 //console.log(stage.stage); 
                 if(stage.stage){
-                    let azureSubId: string="";
+                    let azureSubId: string[] = [];      //azure ids from the YAML file
                     if (stage.variables.azure_subscription_id) {
-                        azureSubId = stage.variables.azure_subscription_id;
-                        //console.log(azureSubId);
+                        const ids = stage.variables.azure_subscription_id.split(',');
+                        azureSubId.push(...ids);
                     }
+                    else if(stage.variables.azure_subscription_ids){
+                        const ids = stage.variables.azure_subscription_ids.split(',');
+                        azureSubId.push(...ids);
+
+                    }
+                    
                     if(stage.jobs){
                         const jobs=stage.jobs;
                         for(const job of jobs){
@@ -60,45 +66,47 @@ export function updateYamlDiagnostics(document: vscode.TextDocument, collection:
                                 steps.forEach((step: any) => {
                                     //console.log(`step ${cnt=cnt+1}`);
 
-                                    if ('inputs' in step) {
+                                    if (step.task==='ExpressV2Internal@1'&& step.inputs) {
                                         const inputValues = step.inputs;
                                         if (inputValues && inputValues.RolloutSpecPath) {
                                             const filePath = inputValues['RolloutSpecPath'];
                                             const lastSlashIndex = filePath.lastIndexOf('/');
 
-                                            // Find the index of '.RolloutSpec.Test.json'
-                                            const suffixIndex = filePath.toLowerCase().lastIndexOf('.rolloutspec.json');
+                                            // // Find the index of '.RolloutSpec.Test.json'
+                                            // const suffixIndex = filePath.toLowerCase().lastIndexOf('.rolloutspec.json');
                                             let file: string = "";
-                                            if (lastSlashIndex !== -1 && suffixIndex !== -1 && suffixIndex > lastSlashIndex && folderPath) {
-                                                const prefix = filePath.substring(lastSlashIndex + 1, suffixIndex);
-                                                file = path.join(folderPath, `${prefix}.servicemodel.json`);
-                                                console.log(prefix); 
+                                            if (lastSlashIndex !== -1 && folderPath) {
+                                                // const prefix = filePath.substring(lastSlashIndex + 1);
+                                                // file = path.join(folderPath, lastSlashIndex);
+                                                // console.log(prefix);
+                                                 file=path.join(folderPath, filePath.substring(lastSlashIndex+1)); 
                                             } else {
-                                                const prefix = "";
-                                                if (folderPath) {
-                                                    file = path.join(folderPath, 'servicemodel.json');
-                                                } console.log('Prefix not found');
+                                                // const prefix = "";
+                                                // if (folderPath) {
+                                                    // file = path.join(folderPath, 'servicemodel.json');
+                                                 console.log('no directory path found');
 
                                             }
-                                            let subscriptionId: string []=[];
-
-
-                                            
-                                            subscriptionId = processJsonFile(file);
+                                            const serviceModelPath=processRolloutspecFile(file);
+                                            let subscriptionId: string []=[];       //azure ids from the service model JSON file
+                                            let sMfilepath="";
+                                            if(folderPath)
+                                            { sMfilepath=path.join(folderPath,serviceModelPath);}
+                                            subscriptionId = processJsonFile(sMfilepath);
                                             console.log(`length of id arr: ${subscriptionId.length}`);
                                             if (subscriptionId.length>0) {
                                                 console.log("Azure subscription ids", subscriptionId);
-                                                let isFound=false;
+                                                let isFound=true;
                                                 for( let k=0;k<subscriptionId.length;k++){
-                                                    if(subscriptionId[k]===azureSubId){
+                                                    if(!azureSubId.includes(subscriptionId[k])){
                                                         console.log(`does match? ${subscriptionId[k]} and ${azureSubId}`);
-                                                        isFound=true;
+                                                        isFound=false;
                                                         break;
                                                     }
 
                                                 }
                                                 if(!isFound){
-                                                    let message = `Error: Incorrect Azure subscription id`;
+                                                    let message = `Error: Incorrect or missing Azure subscription id`;
                                                     if(subscriptionId.length===1){
                                                         message = `Error: Incorrect Azure subscription id. Do you mean \"${subscriptionId[0]}\" ?`;
                                                     }
@@ -106,8 +114,8 @@ export function updateYamlDiagnostics(document: vscode.TextDocument, collection:
                                                             //let problemLine = 0;
                                                             let problemColumn=0;
                                                             for (let k = stageIndices[j]; k < stageIndices[j + 1]; k++) {
-                                                                if (yamlLines[k].includes(azureSubId)) {
-                                                                    problemColumn=yamlLines[k].indexOf(azureSubId);
+                                                                if (yamlLines[k].includes('azure_subscription_id')) {
+                                                                    problemColumn=yamlLines[k].indexOf('azure_subscription_id');
                                                                     problemLine = k;
                                                                     console.log(problemLine);
         

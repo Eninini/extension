@@ -23,7 +23,7 @@ extends:
       serviceTreeId: "28a2529f-7085-4bbf-aa02-787135bb26a8"
       serviceGroupName: "Microsoft.M365.GriffinA.CosmicPlatformTest"    
     stages:
-    - stage: 'PROD_CosmicSetup'     #this is always the first stage in COSMIC
+    - stage: 'PROD_CosmicSetup'
       variables:
         stage_type: nonDeployment
       displayName: 'CosmicSetup'
@@ -42,7 +42,7 @@ extends:
     
     - stage: 'Test_TestRingRelease'      
       displayName: 'Deploy service to TEST ring'
-      dependsOn: PROD_CosmicSetup         #this stage depends on the cosmic setup stage
+      dependsOn: PROD_CosmicSetup
       variables:
         stage_type: deployment
         azure_subscription_ids: "1962e577-e475-4143-ae6d-6dbddf43e670"
@@ -56,7 +56,7 @@ extends:
           type: release
         steps:
           - download: PrimaryArtifact
-          - task: prepare-deployment@1      #mandatory task preceeding ExpressV2Internal task since the environment is TEST.
+          - task: prepare-deployment@1
             env:
               ServiceTreeId: 28a2529f-7085-4bbf-aa02-787135bb26a8
               ServiceGroupName: Microsoft.M365.GriffinA.CosmicPlatformTest
