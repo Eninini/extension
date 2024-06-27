@@ -48,11 +48,11 @@ export function updateYamlDiagnostics(document: vscode.TextDocument, collection:
                 if(stage.stage){
                     let azureSubId: string[] = [];      //azure ids from the YAML file
                     if (stage.variables.azure_subscription_id) {
-                        const ids = stage.variables.azure_subscription_id.split(',');
+                        const ids = stage.variables.azure_subscription_id.split(/,\s*/);
                         azureSubId.push(...ids);
                     }
                     else if(stage.variables.azure_subscription_ids){
-                        const ids = stage.variables.azure_subscription_ids.split(',');
+                        const ids = stage.variables.azure_subscription_ids.split(/,\s*/);
                         azureSubId.push(...ids);
 
                     }
