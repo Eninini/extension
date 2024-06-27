@@ -17,37 +17,37 @@ resources:
 extends:
   template: v2/Microsoft.NonOfficial.yml@GovernedTemplates
   parameters:
-    platform:
+    platform: 
       name: m365
-      serviceTreeId: "e7318a46-6b73-43f6-a577-af7ff79bc936"
-      serviceGroupName: "IngestionPPE"    
+      serviceTreeId: <GUID>
+      serviceGroupName: <name of service group>    
     stages:
     
     #***************************************Deployment stage************************************************
     
-    - stage: 'Prod_Deploy'      
-      displayName: 'Deploy service'
+    - stage: <stage>      
+      displayName: 'display name'
       variables:
-        stage_type: deployment
-        azure_subscription_ids: "5ca3d366-2fc7-45ac-99a6-59824e304b5d"
+        stage_type: <deployment / nonDeployment / registration>
+        azure_subscription_ids: <GUID>
       jobs:
       - job: ReleaseJob
         pool:
           type: release
         steps:
-          - download: PrimaryArtifact
-          - task: artifactDropDownloadTask@0
+          - download: <artifacts to be downloaded>
+          - task: <task name (enum)>
             inputs:
               dropMetadataContainerName: DropMetaData
-              rootPaths: '/_manifest/;/target/Distrib/GriffinComponents/all/retail/amd64/GriffinAzureEv2/GriffinEv2Sample/'
-              destinationPath: '$(PIPELINE.WORKSPACE)\PrimaryArtifact'
+              rootPaths: <relative path>
+              destinationPath: <relative path>
               usePat: false
-          - task: ExpressV2Internal@1
-            displayName: 'Ev2 Deploy'
+          - task: <task name (enum)>
+            displayName: <string>
             inputs:
               EndpointProviderType: 'LockboxService'
-              ServiceRootPath: '$(PIPELINE.WORKSPACE)/PrimaryArtifact/drop/target/Distrib/exchange14/all/retail/amd64/Ingestion'
-              RolloutSpecPath: '$(PIPELINE.WORKSPACE)/PrimaryArtifact/drop/target/Distrib/exchange14/all/retail/amd64/Ingestion/Ingestion_PPE.RolloutSpec.json'
+              ServiceRootPath: <Artifacts folder path>
+              RolloutSpecPath: <path to rolloutspec.json>
               InlineDynamicBindingOverrides: '{"scopeBindings":[{"scopeTagName":"GenevaIngestionPPE","bindings":[{"find":"__ENVIRONMENT__","replaceWith":"scucomplianceppe"},{"find":"__HostedServiceName__","replaceWith":"scucomplianceppe"}]}]}'                  
 
 
