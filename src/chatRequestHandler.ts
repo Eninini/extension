@@ -29,130 +29,201 @@ const filePathMultiCOSMIC = path.join(__dirname, '..', 'sampleYAMLs', multiStage
 const fsMultiCOSMIC = require('fs');
 export const multiCOSMIC = fsMultiCOSMIC.readFileSync(filePathMultiCOSMIC, 'utf8');
 const outputYamlMultiCOSMIC = fsMultiCOSMIC.readFileSync(path.join(__dirname, '..', 'sampleYAMLs', 'exampleOutputMultiCOSMIC.yml'), 'utf8');
-const addStageMultiCOSMIC=fsMultiCOSMIC.readFileSync(path.join(__dirname, '..', 'sampleYAMLs', 'addStageToMultiCOSMIC.yml'), 'utf8');
-const CAT_NAMES_COMMAND_ID = 'participant.namesInEditor';
-export let isCreate: boolean = false; let previousIntent = "Unknown"; let i=0;
-let createPipeline:vscode.LanguageModelChatMessage[]  = [];
-export let isModify: boolean=false;
+const addStageMultiCOSMIC = fsMultiCOSMIC.readFileSync(path.join(__dirname, '..', 'sampleYAMLs', 'addStageToMultiCOSMIC.yml'), 'utf8');
+export let isCreate: boolean = false; let previousIntent = "Unknown"; let i = 0;
+let createPipeline: vscode.LanguageModelChatMessage[] = [];
+export let isModify: boolean = false;
 // export let handler: vscode.ChatRequestHandler;
 // export async function startChat() {
+interface SessionState {
+    currentQuestionIndex: number;
+    numberOfStages?: number;
+    stagesCollected: string[];
+}
 
-    const questions=["What kind of service do you want to deploy the pipeline to?",
-        "Enter service tree id",
-        "Enter service workload",
-        "Enter build pipeline",
-        "Enter number of stages in the pipeline",
-        "Enter stage name",
-        "Enter azure subscription id(s)"
-        
+let sessionState: SessionState | null = null;
 
-    ];
-    function markdown(i: number, stream: vscode.ChatResponseStream) {
-        
-         
-            if(i>=questions.length){
-             return "done";
-            }
-            stream.markdown(questions[i]);
-            createPipeline.push(vscode.LanguageModelChatMessage.Assistant(questions[i]));
-
-
-    }
-   
-           export const  handler = async (request: vscode.ChatRequest, context: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken): Promise<any> => {
-            const [model] = await vscode.lm.selectChatModels({ vendor: 'copilot', family: 'gpt-3.5-turbo' });
-            if (model) {
-            if(request.command==='create'){ 
-                isCreate=true;
-                createPipeline.push(vscode.LanguageModelChatMessage.User(`Identify the key value pairs from the questions and user inputs. Use the example conversation as follows:`));
-               createPipeline.push(vscode.LanguageModelChatMessage.Assistant(questions[0]));
-               createPipeline.push(vscode.LanguageModelChatMessage.User("COSMIC"));
-                createPipeline.push(vscode.LanguageModelChatMessage.Assistant(questions[1]));
-                createPipeline.push(vscode.LanguageModelChatMessage.User("the id is xxxxxx-xxxx-xxxx-xxxx-123456789123"));
-                createPipeline.push(vscode.LanguageModelChatMessage.Assistant(questions[2]));
-                createPipeline.push(vscode.LanguageModelChatMessage.User("workload is Substrate"));
-                createPipeline.push(vscode.LanguageModelChatMessage.Assistant(questions[3]));
-                createPipeline.push(vscode.LanguageModelChatMessage.User("the source from where i downloaded is PrimaryArtifacts"));
-                createPipeline.push(vscode.LanguageModelChatMessage.Assistant(questions[4]));
-                createPipeline.push(vscode.LanguageModelChatMessage.User("Test_release"));
-                // createPipeline.push(vscode.LanguageModelChatMessage.Assistant(questions[5]));
-                createPipeline.push(vscode.LanguageModelChatMessage.User("the first stage is Test_deploy. the second stage is Prod_deploy"));
-                createPipeline.push(vscode.LanguageModelChatMessage.Assistant("Here are the key value pairs from the user input: \n intent: COSMIC \n serviceTreeId: xxxxxx-xxxx-xxxx-xxxx-123456789123 \n service_workload: Substrate \n build_pipeline: PrimaryArtifacts  \n stage_name: Test_release \n\n "));
-                createPipeline.push(vscode.LanguageModelChatMessage.User("##"));
-                // return {metadata:{command: 'create'}};
-
-             }  
-             else if(request.command==='modify'){
-                isModify=true;
-             }
-             if(isCreate){
-                createPipeline.push(vscode.LanguageModelChatMessage.User(request.prompt));
-                
-                if(markdown(i, stream)!=="done"){
-                    i++;
-                    return;
-                }
-              
-
-                i=0; isCreate=false;
-                
-                try{
-                    
-
-                    const chatResponse = await model.sendRequest(createPipeline, {}, token);
-                    let keyValuePairs="";
-                    for await (const fragment of chatResponse.text) {
-                        keyValuePairs+=fragment;
-                        // stream.markdown(fragment);
-                    }
-                    const jsonOutput=extractKeyValues(keyValuePairs);
-                    
-                    const yamlString = yaml.dump(jsonOutput);
-                    stream.markdown(`\`\`\`\n${yamlString}\n\`\`\``);
-                    console.log('create response', chatResponse);
-
-                }
-                catch(err){
-                    handleError(err, stream);
-                }
-
-                createPipeline=[];
-                return;
-
-             }
-             else if(isModify){
-                
-             }
-
-           
-                let history = context.history;
-
-              
-                let lastRequest = null;
-                let lastResponse = null;
-
-                // Find the last request and response in history
-                for (let i = context.history.length - 1; i >= 0; i--) {
-                    const turn = context.history[i];
-                    if (!lastResponse && 'response' in turn && turn.response) {
-                        lastResponse = vscode.LanguageModelChatMessage.Assistant(` ${turn.response.toString()}`);
-                    }
-                    if (!lastRequest && 'prompt' in turn) {
-                        lastRequest = vscode.LanguageModelChatMessage.User(` ${turn.prompt} `);
-                        break; // Stop once we've found the last request and response
-                    }
-                }
+const questions = [
+    "What kind of service do you want to deploy the pipeline to?",
+    "Enter service tree id",
+    "Enter service workload",
+    "Enter build pipeline",
+    "Enter number of stages in the pipeline",
+    "Enter stage name",
+    "Enter azure subscription id(s)"
+];
+// function markdown(i: number, stream: vscode.ChatResponseStream) {
 
 
+//         if(i>=questions.length){
+//          return "done";
+//         }
+//         stream.markdown(questions[i]);
+//         createPipeline.push(vscode.LanguageModelChatMessage.Assistant(questions[i]));
 
 
+// }
 
-
+export const handler = async (request: vscode.ChatRequest, context: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken): Promise<any> => {
+    const [model] = await vscode.lm.selectChatModels({ vendor: 'copilot', family: 'gpt-3.5-turbo' });
+    if (model) {
+        if (request.command === 'create') {
+            isCreate = true;
+            // if (!sessionState) {
+            sessionState = {
+                currentQuestionIndex: 0,
+                stagesCollected: []
             };
+            // }
+            createPipeline.push(vscode.LanguageModelChatMessage.User(`Identify the key value pairs from the questions and user inputs. Use the example conversation as follows:`));
+            createPipeline.push(vscode.LanguageModelChatMessage.Assistant(questions[0]));
+            createPipeline.push(vscode.LanguageModelChatMessage.User("COSMIC"));
+            createPipeline.push(vscode.LanguageModelChatMessage.Assistant(questions[1]));
+            createPipeline.push(vscode.LanguageModelChatMessage.User("the id is xxxxxx-xxxx-xxxx-xxxx-123456789123"));
+            createPipeline.push(vscode.LanguageModelChatMessage.Assistant(questions[2]));
+            createPipeline.push(vscode.LanguageModelChatMessage.User("workload is Substrate"));
+            createPipeline.push(vscode.LanguageModelChatMessage.Assistant(questions[3]));
+            createPipeline.push(vscode.LanguageModelChatMessage.User("the source from where i downloaded is PrimaryArtifacts"));
+            createPipeline.push(vscode.LanguageModelChatMessage.Assistant(questions[4]));
+            createPipeline.push(vscode.LanguageModelChatMessage.User("2"));
+            createPipeline.push(vscode.LanguageModelChatMessage.Assistant(questions[5]));
+            createPipeline.push(vscode.LanguageModelChatMessage.User("Test_release"));
+            createPipeline.push(vscode.LanguageModelChatMessage.Assistant(questions[5]));
+            createPipeline.push(vscode.LanguageModelChatMessage.User("Prod_release"));
+            // createPipeline.push(vscode.LanguageModelChatMessage.Assistant(questions[5]));
+            createPipeline.push(vscode.LanguageModelChatMessage.User("the first stage is Test_deploy. the second stage is Prod_deploy"));
+            createPipeline.push(vscode.LanguageModelChatMessage.Assistant("Here are the key value pairs from the user input: \n intent: COSMIC \n serviceTreeId: xxxxxx-xxxx-xxxx-xxxx-123456789123 \n service_workload: Substrate \n build_pipeline: PrimaryArtifacts  \n stage_name[0]: Test_release \n stage_name[1]: Prod_release\n\n "));
+            createPipeline.push(vscode.LanguageModelChatMessage.User("##"));
+            // return {metadata:{command: 'create'}};
+            // return;
 
-            // const participant = vscode.chat.createChatParticipant('mobr-pipelines.mobr-pipelines', handler);
-        };
-     
+        }
+
+        else if (request.command === 'modify') {
+            isModify = true;
+        }
+        //Issue: answer to present question is in the next prompt 
+        try {
+            if (sessionState && sessionState.currentQuestionIndex < questions.length) {
+                //question to which the current answer belongs
+                const currentQuestion = questions[sessionState.currentQuestionIndex ? sessionState.currentQuestionIndex - 1 : 0];
+                stream.markdown(questions[sessionState.currentQuestionIndex]);       //ask the next question
+                if (sessionState.currentQuestionIndex > 0) {
+                    createPipeline.push(vscode.LanguageModelChatMessage.Assistant(questions[sessionState.currentQuestionIndex - 1]));
+                } createPipeline.push(vscode.LanguageModelChatMessage.User(request.prompt));
+                console.log(request.prompt);
+                // Handle specific questions based on current index
+                switch (currentQuestion) {
+                    case "Enter number of stages in the pipeline":
+                        // if (sessionState.currentQuestionIndex === 4) {
+                        // Handle input for number of stages
+                        const num = request.prompt.match(/\d+/);
+                        sessionState.numberOfStages = num ? parseInt(num[0]) : 0;
+                        sessionState.currentQuestionIndex++;
+                        return; // Exit switch to avoid immediate increment
+                    // }
+                    // break;
+                    case "Enter stage name":
+                        if (sessionState.currentQuestionIndex-1 === 5 && sessionState.numberOfStages) {
+                            // Handle input for stage names dynamically
+                            sessionState.stagesCollected.push(request.prompt);
+                            if (sessionState.stagesCollected.length < sessionState.numberOfStages) {
+                                return; // Exit switch to avoid immediate increment
+                            }
+                        }
+                        break;
+                    default:
+                        break;
+                }
+
+                // Continue asking questions
+                sessionState.currentQuestionIndex++;
+            } else {
+                // All questions answered, process and reset state
+                const chatResponse = await model.sendRequest(createPipeline, {}, token);
+                let keyValuePairs = "";
+                for await (const fragment of chatResponse.text) {
+                    keyValuePairs += fragment;
+                }
+                const jsonOutput = extractKeyValues(keyValuePairs);
+                const yamlString = yaml.dump(jsonOutput);
+                stream.markdown(`\`\`\`\n${yamlString}\n\`\`\``);
+                console.log('create response', chatResponse);
+
+                // Reset session state after processing
+                sessionState = null;
+            }
+        } catch (err) {
+            handleError(err, stream);
+        }
+        //  if(isCreate){
+        //     createPipeline.push(vscode.LanguageModelChatMessage.User(request.prompt));
+
+        //     if(markdown(i, stream)!=="done"){
+        //         i++;
+        //         return;
+        //     }
+
+
+        //     i=0; isCreate=false;
+
+        //     try{
+
+
+        //         const chatResponse = await model.sendRequest(createPipeline, {}, token);
+        //         let keyValuePairs="";
+        //         for await (const fragment of chatResponse.text) {
+        //             keyValuePairs+=fragment;
+        //             // stream.markdown(fragment);
+        //         }
+        //         const jsonOutput=extractKeyValues(keyValuePairs);
+
+        //         const yamlString = yaml.dump(jsonOutput);
+        //         stream.markdown(`\`\`\`\n${yamlString}\n\`\`\``);
+        //         console.log('create response', chatResponse);
+
+        //     }
+        //     catch(err){
+        //         handleError(err, stream);
+        //     }
+
+        //     createPipeline=[];
+        //     return;
+
+        // //  }
+        //  else if(isModify){
+
+        //  }
+
+
+        let history = context.history;
+
+
+        let lastRequest = null;
+        let lastResponse = null;
+
+        // Find the last request and response in history
+        for (let i = context.history.length - 1; i >= 0; i--) {
+            const turn = context.history[i];
+            if (!lastResponse && 'response' in turn && turn.response) {
+                lastResponse = vscode.LanguageModelChatMessage.Assistant(` ${turn.response.toString()}`);
+            }
+            if (!lastRequest && 'prompt' in turn) {
+                lastRequest = vscode.LanguageModelChatMessage.User(` ${turn.prompt} `);
+                break; // Stop once we've found the last request and response
+            }
+        }
+
+
+
+
+
+
+    };
+
+    // const participant = vscode.chat.createChatParticipant('mobr-pipelines.mobr-pipelines', handler);
+};
+
 
 async function classifyPrompt(model: vscode.LanguageModelChat, prompt: string, token: vscode.CancellationToken, stream: vscode.ChatResponseStream, previousMessages: vscode.ChatRequestTurn[]): Promise<string> {
     const classificationMessage = [
@@ -217,10 +288,10 @@ async function classifyPrompt(model: vscode.LanguageModelChat, prompt: string, t
         else if (classification.includes('More information required')) {
             return "More Info required";
         }
-        else if(classification.includes('Add stage')){
+        else if (classification.includes('Add stage')) {
             return "Add stage";
         }
-        else if(classification.includes('Add input values')){
+        else if (classification.includes('Add input values')) {
             return "Add input values";
         }
         else {
