@@ -3,8 +3,11 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { renderPrompt } from '@vscode/prompt-tsx';
 import { processJsonFile } from './processArtifacts';
-import { handleError, startChat } from './chatRequestHandler';
+import { handleError, handler } from './chatRequestHandler';
 import { updateYamlDiagnostics, subscribeToDocumentChanges } from './validation';
+import { register } from 'module';
+import { isModify } from './chatRequestHandler';
+// import { modelD } from './chatRequestHandler';
 
 
 export var folderPath: string | undefined;
@@ -36,9 +39,42 @@ export function activate(context: vscode.ExtensionContext) {
             providedCodeActionKinds: YamlCodeActionProvider.providedCodeActionKinds
         })
     );
-   
+    const participant = vscode.chat.createChatParticipant('mobr-pipelines.mobr-pipelines', handler);
+ context.subscriptions.push(participant,);
+ participant.followupProvider = {
+    provideFollowups(result: any, context: vscode.ChatContext, token: vscode.CancellationToken) {
+        return [{
+            prompt: '/create',
+            label: vscode.l10n.t('create'),
+            command: 'create'
+        } satisfies vscode.ChatFollowup,{
+            prompt: '/modify',
+            label: vscode.l10n.t('modify'),
+            command: 'modify'
+        }satisfies vscode.ChatFollowup];
+    }
+};
+
+if(isModify){
+    participant.followupProvider={
+        provideFollowups(result: any, context: vscode.ChatContext, token: vscode.CancellationToken) {
+            return [{
+                prompt: '/addStage',
+                label: vscode.l10n.t('Add a new stage'),
+                command: 'addStage'
+            } satisfies vscode.ChatFollowup,{
+                prompt: '/updateStage',
+                label: vscode.l10n.t('Update a stage'),
+                command: 'updateStage'
+            }];
+        }
+    
+    };
+}
     let startChatCommand = vscode.commands.registerCommand('mobr-pipelines.startChat', async () => {
-        await startChat();
+        await handler;
+        vscode.window.showInformationMessage('MOBR Pipelines chat started!');
+
         console.log('Chat started');
     });
     context.subscriptions.push(startChatCommand);

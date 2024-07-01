@@ -12,11 +12,11 @@ resources:
 
   pipelines:
   - pipeline: PrimaryArtifact
-    source: "D2Services-CosmicPlatformTest-Windows-Official"
+    source: <pipeline name>
     branch: master
 
 extends:
-  template: v2/Microsoft.NonOfficial.yml@GovernedTemplates
+  template: v2/Microsoft.Official.yml@GovernedTemplates
   parameters:
     platform:
       name: m365
@@ -47,10 +47,10 @@ extends:
       variables:
         stage_type: <deployment / nonDeployment / registration>
         azure_subscription_ids: <GUID>
-        namespace_ring_json: '[{"Ring": "TEST", "Namespace": "cosmic-platform-test" }]'
-        SourceImages: $[ stageDependencies.PROD_CosmicSetup.SetupCosmicPipelineVariables.outputs['SetVar.SourceImages'] ]
-        CatalogHash: $[ stageDependencies.PROD_CosmicSetup.SetupCosmicPipelineVariables.outputs['SetVar.CatalogHash'] ]
-        VersionToDeploy: $[ stageDependencies.PROD_CosmicSetup.SetupCosmicPipelineVariables.outputs['SetVar.VersionToDeploy'] ]
+        namespace_ring_json: <>
+        SourceImages: <>
+        CatalogHash: <>
+        VersionToDeploy: <>
       jobs:
       - job: ReleaseJob
         pool:
@@ -69,6 +69,5 @@ extends:
               EndpointProviderType: 'LockboxService'
               ServiceRootPath: '$(PIPELINE.WORKSPACE)/PrimaryArtifact/drop_CosmicArtifact_CosmicArtifactJob/package/ModelService'
               RolloutSpecPath: '$(PIPELINE.WORKSPACE)/PrimaryArtifact/drop_CosmicArtifact_CosmicArtifactJob/package/ModelService/cosmicplatformtest-test-onebranch.rolloutspec.json'
-              InlineDynamicBindingOverrides: '{   "$schema": "https://ev2schema.azure.net/schemas/2020-01-01/scopeBindings.json",   "contentVersion": "1.0.0.0",   "scopeBindings": [     {         "scopeTagName": "SubmitAppRelease",         "bindings": [           {             "find": "__LOCKBOX_AUTHORIZATION_TOKEN__",             "replaceWith": "$(JWT_cosmic-platform-test_TEST)"           },  {"find": "__RELEASE_CONTEXT__",        "replaceWith": "{}"},  {             "find": "__SOURCE_IMAGE_DIGESTS__",             "replaceWith": "$(SourceImages)"           },           {             "find": "__RELEASEID__",             "replaceWith": "$(Build.BuildId)"           } ,           {             "find": "__PARTITION__",             "replaceWith": "d01"           },{             "find": "__DEPLOYMENT_VERSION__",             "replaceWith": "$(VersionToDeploy)"           }, {             "find": "__CHECK_M365SDPPOLICIES__",             "replaceWith": "false"           }, {             "find": "__SECRETS_RESOLUTION_SCOPE__",             "replaceWith": "test"           }, {             "find": "__RUN_CONTAINER_IMAGE_VALIDATION__",             "replaceWith": "false"           }  ]       }   ] }  '
-
+              InlineDynamicBindingOverrides: <>
 
