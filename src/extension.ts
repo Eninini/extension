@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { renderPrompt } from '@vscode/prompt-tsx';
 import { processJsonFile } from './processArtifacts';
-import { handleError, handler } from './chatRequestHandler';
+import { handleError, handler, isCreate } from './chatRequestHandler';
 import { updateYamlDiagnostics, subscribeToDocumentChanges } from './validation';
 import { register } from 'module';
 import { isModify } from './chatRequestHandler';
@@ -43,7 +43,7 @@ export function activate(context: vscode.ExtensionContext) {
  context.subscriptions.push(participant,);
  participant.followupProvider = {
     provideFollowups(result: any, context: vscode.ChatContext, token: vscode.CancellationToken) {
-        return [{
+    if(!isCreate&&!isModify) {   return [{
             prompt: '/create',
             label: vscode.l10n.t('create'),
             command: 'create'
@@ -51,7 +51,18 @@ export function activate(context: vscode.ExtensionContext) {
             prompt: '/modify',
             label: vscode.l10n.t('modify'),
             command: 'modify'
-        }satisfies vscode.ChatFollowup];
+        }satisfies vscode.ChatFollowup];}
+        if(isModify){
+            return [{
+                prompt: '/addStage',
+                label: vscode.l10n.t('Add a new stage'),
+                command: 'addStage'
+            } satisfies vscode.ChatFollowup,{
+                prompt: '/updateStage',
+                label: vscode.l10n.t('Update a stage'),
+                command: 'updateStage'
+            }];
+        }
     }
 };
 

@@ -40,9 +40,12 @@ interface SessionState {
     numberOfStages?: number;
     stagesCollected: string[];
 }
-
+interface ModifyPipeline {
+    addStage: boolean;
+    updateStage: boolean;
+}
 let sessionState: SessionState | null = null;
-
+let modifyPipeline: ModifyPipeline | null = null;
 const questions = [
     "What kind of service do you want to deploy the pipeline to?",
     "Enter service tree id",
@@ -57,7 +60,7 @@ let numStage = 0;
 export const handler = async (request: vscode.ChatRequest, context: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken): Promise<any> => {
     const [model] = await vscode.lm.selectChatModels({ vendor: 'copilot', family: 'gpt-3.5-turbo' });
     if (model) {
-        if (request.command === 'create') {
+        if (request.command === 'create') {     //classification of the prompt, only when session state is null
             // isCreate = true;
             // if (!sessionState) {
                 sessionState = {
@@ -65,6 +68,7 @@ export const handler = async (request: vscode.ChatRequest, context: vscode.ChatC
                     numberOfStages: 0,
                     stagesCollected: []
                 };
+                createPipeline=[];
             // }
             createPipeline.push(vscode.LanguageModelChatMessage.User(`Identify the key value pairs from the questions and user inputs. Use the example conversation as follows:`));
             createPipeline.push(vscode.LanguageModelChatMessage.Assistant(questions[0]));
@@ -83,7 +87,7 @@ export const handler = async (request: vscode.ChatRequest, context: vscode.ChatC
             createPipeline.push(vscode.LanguageModelChatMessage.User("Prod_release"));
             // createPipeline.push(vscode.LanguageModelChatMessage.Assistant(questions[5]));
             createPipeline.push(vscode.LanguageModelChatMessage.User("the first stage is Test_deploy. the second stage is Prod_deploy"));
-            createPipeline.push(vscode.LanguageModelChatMessage.Assistant("Here are the key value pairs from the user input: \n intent: COSMIC \n serviceTreeId: xxxxxx-xxxx-xxxx-xxxx-123456789123 \n service_workload: Substrate \n build_pipeline: PrimaryArtifacts  \n stage_name[0]: Test_release \n stage_name[1]: Prod_release\n\n "));
+            createPipeline.push(vscode.LanguageModelChatMessage.Assistant("Here are the key value pairs from the user input: \n intent: COSMIC \n serviceTreeId: xxxxxx-xxxx-xxxx-xxxx-123456789123 \n service_workload: Substrate \n build_pipeline: PrimaryArtifacts \nnumber_of_stages: 2  \n stage_name[0]: Test_release \n stage_name[1]: Prod_release\n\n "));
             createPipeline.push(vscode.LanguageModelChatMessage.User("##"));
             // return {metadata:{command: 'create'}};
             // return;
@@ -93,6 +97,13 @@ export const handler = async (request: vscode.ChatRequest, context: vscode.ChatC
         else if (request.command === 'modify') {
             isModify = true;
         }
+
+        // try{
+
+        // }
+        // catch(err){
+        //     handleError(err, stream);
+        // }
 
         // while (sessionState&&sessionState.currentQuestionIndex===5&&numStage <= sessionState.numberOfStages) {
         //     // Ask for the stage name
@@ -179,7 +190,7 @@ export const handler = async (request: vscode.ChatRequest, context: vscode.ChatC
                 const jsonOutput = extractKeyValues(keyValuePairs);
                 const yamlString = yaml.dump(jsonOutput);
                 stream.markdown(`\`\`\`\n${yamlString}\n\`\`\``);
-                console.log('create response', chatResponse);
+                console.log('create response', keyValuePairs);
 
                 // Reset session state after processing
                 sessionState = null;
@@ -228,23 +239,23 @@ export const handler = async (request: vscode.ChatRequest, context: vscode.ChatC
         //  }
 
 
-        let history = context.history;
+        // let history = context.history;
 
 
-        let lastRequest = null;
-        let lastResponse = null;
+        // let lastRequest = null;
+        // let lastResponse = null;
 
-        // Find the last request and response in history
-        for (let i = context.history.length - 1; i >= 0; i--) {
-            const turn = context.history[i];
-            if (!lastResponse && 'response' in turn && turn.response) {
-                lastResponse = vscode.LanguageModelChatMessage.Assistant(` ${turn.response.toString()}`);
-            }
-            if (!lastRequest && 'prompt' in turn) {
-                lastRequest = vscode.LanguageModelChatMessage.User(` ${turn.prompt} `);
-                break; // Stop once we've found the last request and response
-            }
-        }
+        // // Find the last request and response in history
+        // for (let i = context.history.length - 1; i >= 0; i--) {
+        //     const turn = context.history[i];
+        //     if (!lastResponse && 'response' in turn && turn.response) {
+        //         lastResponse = vscode.LanguageModelChatMessage.Assistant(` ${turn.response.toString()}`);
+        //     }
+        //     if (!lastRequest && 'prompt' in turn) {
+        //         lastRequest = vscode.LanguageModelChatMessage.User(` ${turn.prompt} `);
+        //         break; // Stop once we've found the last request and response
+        //     }
+        // }
 
 
 
@@ -261,27 +272,27 @@ async function classifyPrompt(model: vscode.LanguageModelChat, prompt: string, t
     const classificationMessage = [
         vscode.LanguageModelChatMessage.User('Which intent label does the query belong to? Labels: 1. Model D single stage 2. COSMIC  3. More information required 4. Unknown 5. Add stage 6. Add input values'),
         // vscode.LanguageModelChatMessage.User('Intents: \" Model D single stage\", \"COSMIC single stage\",\" COSMIC multi stage\",\"Unclear\"'),
-
+//explicitly tell it to answer in one word
     ];
     //train this more
-    classificationMessage.push(vscode.LanguageModelChatMessage.User(`This is my pipeline ${COSMIC}. `));        //how does this get forwarded as cosmic?
+    // classificationMessage.push(vscode.LanguageModelChatMessage.User(`This is my pipeline ${COSMIC}. `));        //how does this get forwarded as cosmic?
     classificationMessage.push(vscode.LanguageModelChatMessage.Assistant(`Intent is COSMIC`));
     classificationMessage.push(vscode.LanguageModelChatMessage.User(`##`));
 
-    classificationMessage.push(vscode.LanguageModelChatMessage.User(`COSMIC multi stage (more than one stages) pipeline : ${multiCOSMIC}. Look for the presence of keys in the user input and match with the above. you should be able to tell the intent from the user YAML`));
+    // classificationMessage.push(vscode.LanguageModelChatMessage.User(`COSMIC multi stage (more than one stages) pipeline : ${multiCOSMIC}. Look for the presence of keys in the user input and match with the above. you should be able to tell the intent from the user YAML`));
     classificationMessage.push(vscode.LanguageModelChatMessage.Assistant(`Intent is COSMIC`));
     classificationMessage.push(vscode.LanguageModelChatMessage.User(`##`));
 
-    classificationMessage.push(vscode.LanguageModelChatMessage.User(`Model D pipeline for reference: ${modelD}. Look for the presence of keys in the user input and match with the above. you should be able to tell the intent from the user YAML`));
+    // classificationMessage.push(vscode.LanguageModelChatMessage.User(`Model D pipeline for reference: ${modelD}. Look for the presence of keys in the user input and match with the above. you should be able to tell the intent from the user YAML`));
     classificationMessage.push(vscode.LanguageModelChatMessage.Assistant(`Intent is Model D`));
     classificationMessage.push(vscode.LanguageModelChatMessage.User(`##`));
 
     classificationMessage.push(vscode.LanguageModelChatMessage.User(`Create a pipeline for Model D services`));
-    classificationMessage.push(vscode.LanguageModelChatMessage.Assistant(`Intent is Model D`));
+    classificationMessage.push(vscode.LanguageModelChatMessage.Assistant(`Model D`));   //intent is one word
     classificationMessage.push(vscode.LanguageModelChatMessage.User(`##`));
 
     classificationMessage.push(vscode.LanguageModelChatMessage.User(`Create a pipeline for COSMIC services`));
-    classificationMessage.push(vscode.LanguageModelChatMessage.Assistant(`Intent is COSMIC`));
+    classificationMessage.push(vscode.LanguageModelChatMessage.Assistant(`COSMIC`));
     classificationMessage.push(vscode.LanguageModelChatMessage.User(`##`));
 
     classificationMessage.push(vscode.LanguageModelChatMessage.User(`Add a stage to the pipeline`));

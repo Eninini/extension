@@ -60,7 +60,7 @@ export function updateYamlDiagnostics(document: vscode.TextDocument, collection:
                     if(stage.jobs){
                         const jobs=stage.jobs;
                         for(const job of jobs){
-                            console.log(job.job);
+                            // console.log(job.job);
                             if(job.steps){
                                 const steps=job.steps;
                                 steps.forEach((step: any) => {
@@ -117,7 +117,7 @@ export function updateYamlDiagnostics(document: vscode.TextDocument, collection:
                                                                 if (yamlLines[k].includes('azure_subscription_id')) {
                                                                     problemColumn=yamlLines[k].indexOf('azure_subscription_id');
                                                                     problemLine = k;
-                                                                    console.log(problemLine);
+                                                                    // console.log(problemLine);
         
                                                                     break;
                                                                 }
@@ -155,8 +155,8 @@ export function updateYamlDiagnostics(document: vscode.TextDocument, collection:
 
 
 
-                                            console.log(inputValues['RolloutSpecPath']);
-                                            console.log(file);
+                                            // console.log(inputValues['RolloutSpecPath']);
+                                            // console.log(file);
                                         }
                                     }
                                 });
@@ -172,7 +172,7 @@ export function updateYamlDiagnostics(document: vscode.TextDocument, collection:
                     if (stage.jobs) {
                         const jobs = stage.jobs;
                         for (const job of jobs) {
-                            console.log(job.job);
+                            // console.log(job.job);
                             if (job.steps) {
                                 const steps = job.steps;
                                 if (!steps.some((step: any) => step.download)) {
@@ -183,14 +183,14 @@ export function updateYamlDiagnostics(document: vscode.TextDocument, collection:
                                     for (let k = stageIndices[j]; k < stageIndices[j + 1]; k++) {
                                         if (yamlLines[k].includes('steps')) {
                                             problemLine = k;
-                                            console.log(k);
+                                            // console.log(k);
                                              problemColumn = yamlLines[k].indexOf('steps');
                                             break;
                                         }
                                     }
 
                                     const range = new vscode.Range(new vscode.Position(problemLine, problemColumn), new vscode.Position(problemLine, yamlLines[problemLine].length));
-                                    console.log(range);
+                                    // console.log(range);
                                     const diagnostic=new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error);
                                     diagnostic.code='missingDownload';
                                     diagnostics.push(diagnostic);

@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
-import { modelD } from './chatRequestHandler';
+import { modelD, multiCOSMIC, COSMIC } from './chatRequestHandler';
 
     interface Repository {
         repository: string;
@@ -87,19 +87,24 @@ import { modelD } from './chatRequestHandler';
       export function extractKeyValues(modelOutput: string)  {
         let intent="Unknown";
      //    const yamll=modelD.getText()
-           const yamlContent = yaml.load(modelD) as YAMLStructure;
-           const deepCopyYaml = JSON.parse(JSON.stringify(yamlContent));
+           const yamlContentD = yaml.load(modelD) as YAMLStructure;
+           const yamlContentC = yaml.load(COSMIC) as YAMLStructure;
+           let deepCopyYaml = JSON.parse(JSON.stringify(yamlContentD));
            modelOutput.split('\n').forEach((line: string) => {
-             const key = line.split(/\s*:\s*/)[0].trim();
+             const key = line.split(/\s*:\s*/)[0];
              
 
-             const value = line.split(/\s*:\s*/)[1].trim();
+             const value = line.split(/\s*:\s*/)[1];
              console.log(key,":",value);
  
-             if(key.toLowerCase().includes('intent')){
-                 intent = value;
+             if(intent==="Unknown"&&key.toLowerCase().match(/intent/)){
+                 intent=value;
+                 if(intent.toLowerCase().match(/cosmic/))
+                { deepCopyYaml=[];
+                  deepCopyYaml=JSON.parse(JSON.stringify(yamlContentC));}
              }
-             else if(key.toLowerCase().match(/service[a-zA-Z_]*tree[a-zA-Z_]*id/)){
+            
+             else if(key.toLowerCase().match(/service[_|\s*]*tree[_|\s*]*id/)){
                  // if(yamlContent&&yamlContent.extends){
                  //     yamlContent.extends = value;}
                 //  if(typeof(yamlContent)==='object'&&yamlContent!==null){
@@ -113,10 +118,15 @@ import { modelD } from './chatRequestHandler';
                 deepCopyYaml.resources.pipelines[0].pipeline = value;
             }
             else if(key.match(/stage[_|\s*]name/)){
-                deepCopyYaml.extends.parameters.stages[0].stage = value;
+               const idx=key.match(/\d+/);
+               
+               const id=idx?parseInt(idx[0]):0;
+                deepCopyYaml.extends.parameters.stages[id].stage = value;
             }
             
             
            });
            return deepCopyYaml;
      }
+
+     
