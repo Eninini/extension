@@ -49,31 +49,22 @@ const questions = [
     "Enter service workload",
     "Enter build pipeline",
     "Enter number of stages in the pipeline",
-    "Enter stage name",
-    "Enter azure subscription id(s)"
+    "Enter stage name"
 ];
-// function markdown(i: number, stream: vscode.ChatResponseStream) {
-
-
-//         if(i>=questions.length){
-//          return "done";
-//         }
-//         stream.markdown(questions[i]);
-//         createPipeline.push(vscode.LanguageModelChatMessage.Assistant(questions[i]));
-
 
 // }
-
+let numStage = 0;
 export const handler = async (request: vscode.ChatRequest, context: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken): Promise<any> => {
     const [model] = await vscode.lm.selectChatModels({ vendor: 'copilot', family: 'gpt-3.5-turbo' });
     if (model) {
         if (request.command === 'create') {
-            isCreate = true;
+            // isCreate = true;
             // if (!sessionState) {
-            sessionState = {
-                currentQuestionIndex: 0,
-                stagesCollected: []
-            };
+                sessionState = {
+                    currentQuestionIndex: -1,
+                    numberOfStages: 0,
+                    stagesCollected: []
+                };
             // }
             createPipeline.push(vscode.LanguageModelChatMessage.User(`Identify the key value pairs from the questions and user inputs. Use the example conversation as follows:`));
             createPipeline.push(vscode.LanguageModelChatMessage.Assistant(questions[0]));
@@ -102,15 +93,24 @@ export const handler = async (request: vscode.ChatRequest, context: vscode.ChatC
         else if (request.command === 'modify') {
             isModify = true;
         }
+
+        // while (sessionState&&sessionState.currentQuestionIndex===5&&numStage <= sessionState.numberOfStages) {
+        //     // Ask for the stage name
+        //     stream.markdown(questions[5]); // "Enter stage name"
+        //     // Logic to capture the user's response and store it in stagesCollected
+        //     sessionState.stagesCollected.push(/* user's response */);
+        //     sessionState.currentQuestionIndex++;
+        // }
         //Issue: answer to present question is in the next prompt 
         try {
-            if (sessionState && sessionState.currentQuestionIndex < questions.length) {
+            if (sessionState && sessionState.currentQuestionIndex !== -1 && sessionState.currentQuestionIndex < questions.length) {
                 //question to which the current answer belongs
-                const currentQuestion = questions[sessionState.currentQuestionIndex ? sessionState.currentQuestionIndex - 1 : 0];
-                stream.markdown(questions[sessionState.currentQuestionIndex]);       //ask the next question
-                if (sessionState.currentQuestionIndex > 0) {
-                    createPipeline.push(vscode.LanguageModelChatMessage.Assistant(questions[sessionState.currentQuestionIndex - 1]));
-                } createPipeline.push(vscode.LanguageModelChatMessage.User(request.prompt));
+                const currentQuestion = questions[sessionState.currentQuestionIndex];
+                //ask the next question
+
+                createPipeline.push(vscode.LanguageModelChatMessage.Assistant(currentQuestion));
+                createPipeline.push(vscode.LanguageModelChatMessage.User(request.prompt));
+                console.log('current question:', currentQuestion);
                 console.log(request.prompt);
                 // Handle specific questions based on current index
                 switch (currentQuestion) {
@@ -119,15 +119,16 @@ export const handler = async (request: vscode.ChatRequest, context: vscode.ChatC
                         // Handle input for number of stages
                         const num = request.prompt.match(/\d+/);
                         sessionState.numberOfStages = num ? parseInt(num[0]) : 0;
-                        sessionState.currentQuestionIndex++;
-                        return; // Exit switch to avoid immediate increment
+                        // sessionState.currentQuestionIndex++;
+                        break; // Exit switch to avoid immediate increment
                     // }
                     // break;
                     case "Enter stage name":
-                        if (sessionState.currentQuestionIndex-1 === 5 && sessionState.numberOfStages) {
+                        if (sessionState.currentQuestionIndex === 5 && sessionState.numberOfStages) {
                             // Handle input for stage names dynamically
                             sessionState.stagesCollected.push(request.prompt);
                             if (sessionState.stagesCollected.length < sessionState.numberOfStages) {
+                                stream.markdown(questions[5]); // "Enter stage name" since it is not reaching end of flow
                                 return; // Exit switch to avoid immediate increment
                             }
                         }
@@ -136,10 +137,40 @@ export const handler = async (request: vscode.ChatRequest, context: vscode.ChatC
                         break;
                 }
 
-                // Continue asking questions
-                sessionState.currentQuestionIndex++;
-            } else {
+            }
+            //last question answer has to be processed separately
+            // if(sessionState&&sessionState.currentQuestionIndex>=questions.length){
+            //     // All questions answered, process and reset state
+            //     createPipeline.push(vscode.LanguageModelChatMessage.Assistant(questions[questions.length-1]));
+            //     createPipeline.push(vscode.LanguageModelChatMessage.User(request.prompt));
+            //     const chatResponse = await model.sendRequest(createPipeline, {}, token);
+            //     let keyValuePairs = "";
+            //     for await (const fragment of chatResponse.text) {
+            //         keyValuePairs += fragment;
+            //     }
+            //     const jsonOutput = extractKeyValues(keyValuePairs);
+            //     const yamlString = yaml.dump(jsonOutput);
+            //     stream.markdown(`\`\`\`\n${yamlString}\n\`\`\``);
+            //     console.log('create response', chatResponse);
+
+            //     // Reset session state after processing
+            //     sessionState = null;
+            //     createPipeline = [];
+            // }
+        } catch (err) {
+            handleError(err, stream);
+        }
+
+        if (sessionState) {
+            sessionState.currentQuestionIndex++;
+            if (sessionState.currentQuestionIndex < questions.length) {
+                stream.markdown(questions[sessionState.currentQuestionIndex]);
+                return;
+            }
+            else if (sessionState.currentQuestionIndex >= questions.length) {
                 // All questions answered, process and reset state
+                // createPipeline.push(vscode.LanguageModelChatMessage.Assistant(questions[questions.length - 1]));
+                // createPipeline.push(vscode.LanguageModelChatMessage.User(request.prompt));
                 const chatResponse = await model.sendRequest(createPipeline, {}, token);
                 let keyValuePairs = "";
                 for await (const fragment of chatResponse.text) {
@@ -152,10 +183,11 @@ export const handler = async (request: vscode.ChatRequest, context: vscode.ChatC
 
                 // Reset session state after processing
                 sessionState = null;
+                createPipeline = [];
             }
-        } catch (err) {
-            handleError(err, stream);
+
         }
+
         //  if(isCreate){
         //     createPipeline.push(vscode.LanguageModelChatMessage.User(request.prompt));
 
